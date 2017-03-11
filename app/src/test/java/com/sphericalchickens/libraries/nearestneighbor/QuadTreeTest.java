@@ -93,6 +93,20 @@ public class QuadTreeTest {
     closestLocation = qt.findClosestLocation(testLocation);
     assertThat(closestLocation).isNotNull();
     assertThat(closestLocation.location).matchesLocation(new LatLng(0.5, 0.5));
+
+    // Try a trickier location
+    addLatLng(qt, 0.01, 0.01);
+    testLocation = new LatLng(-0.01, 0.01);
+    bruteForceClosest = bruteForceClosest(qt, testLocation);
+    assertThat(bruteForceClosest.location).matchesLocation(new LatLng(0.01, 0.01));
+
+    closestLocation = qt.findClosestLocation(testLocation);
+    assertThat(closestLocation).isNotNull();
+    assertThat(closestLocation.location).matchesLocation(bruteForceClosest.location);
+  }
+
+  private void addLatLng(QuadTree quadTree, double lat, double lng) {
+    quadTree.addLatLng(new AnnotatedLatLng(new LatLng(lat, lng)));
   }
 
   @Nullable
