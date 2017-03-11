@@ -1,5 +1,8 @@
 package com.sphericalchickens.libraries.nearestneighbor;
 
+import android.support.annotation.Nullable;
+
+import com.google.android.gms.maps.model.GroundOverlay;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 
@@ -12,56 +15,154 @@ import java.util.List;
 
 public class QuadTree {
   static final int MAX_DEPTH = 11;
-  QuadTree northEast;
-  QuadTree southEast;
-  QuadTree southWest;
-  QuadTree northWest;
+
+  QuadTree children[] = new QuadTree[4];
+
+  static final int NORTHEAST = 0;
+  static final int SOUTHEAST = 1;
+  static final int SOUTHWEST = 2;
+  static final int NORTHWEST = 3;
 
   final int depth;
   final LatLngBounds bounds;
-  final List<LatLngIdx> locations = new ArrayList<>();
+  final List<AnnotatedLatLng> locations = new ArrayList<>();
+
+  public QuadTree(LatLng latLng, LatLng latLng1, int depth) {
+    bounds = LatLngBounds.builder().include(latLng).include(latLng1).build();
+    this.depth = depth;
+  }
 
   public LatLngBounds getBounds() {
     return bounds;
   }
 
-  private static class LatLngIdx {
-    final LatLng location;
-    final int index;
+  public boolean contains(LatLng ll) {
+    return bounds.contains(ll);
+  }
 
-    LatLngIdx(LatLng location, int index) {
+  public boolean contains(AnnotatedLatLng ll) {
+    return contains(ll.location);
+  }
+
+  @Nullable
+  public QuadTree getNorthEast() {
+    return children[NORTHEAST];
+  }
+
+  @Nullable
+  public QuadTree getNorthWest() {
+    return children[NORTHWEST];
+  }
+
+  @Nullable
+  public QuadTree getSouthEast() {
+    return children[SOUTHEAST];
+  }
+
+  @Nullable
+  public QuadTree getSouthWest() {
+    return children[SOUTHWEST];
+  }
+
+  public List<AnnotatedLatLng> getLocations() {
+    return locations;
+  }
+
+  // Test only method...
+  public List<AnnotatedLatLng> getAllLocations() {
+    List<AnnotatedLatLng> result = new ArrayList<>();
+
+    result.addAll(locations);
+
+    if (children[0] != null) {
+      for (QuadTree child : children) {
+        result.addAll(child.getAllLocations());
+      }
+    }
+
+    return result;
+  }
+
+  public AnnotatedLatLng findClosestLocation(LatLng testLocation) {
+    if (!locations.isEmpty()) {
+      return locations.get(0);
+    }
+
+    if (children[0] != null) {
+      for (QuadTree child : children) {
+        if (child.contains(testLocation)) {
+          return child.findClosestLocation(testLocation);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  static class AnnotatedLatLng {
+    final LatLng location;
+    private Object tag;
+
+    AnnotatedLatLng(LatLng location) {
       this.location = location;
-      this.index = index;
+    }
+
+    void setTag(Object tag) {
+      this.tag = tag;
+    }
+
+    @Nullable
+    Object getTag() {
+      return tag;
     }
   }
 
-  public QuadTree(int depth, LatLngBounds bounds) {
+  public QuadTree(LatLngBounds bounds) {
+    this(bounds, 0);
+  }
+
+  private QuadTree(LatLngBounds bounds, int depth) {
     this.depth = depth;
     this.bounds = bounds;
   }
 
-  void addLatLng(LatLng location, int index) {
+  void addLatLng(AnnotatedLatLng annotatedLatLng) {
+    LatLng location = annotatedLatLng.location;
     if (!bounds.contains(location)) {
       throw new IllegalArgumentException("Location was out of bounds");
     }
 
-    if (locations.isEmpty() || depth == MAX_DEPTH) {
-      locations.add(new LatLngIdx(location, index));
+    // Check if this node has children
+    if (children[0] == null && (locations.isEmpty() || depth == MAX_DEPTH)) {
+      locations.add(annotatedLatLng);
       return;
     }
 
-    boolean isNorth = location.latitude > bounds.getCenter().latitude;
-    boolean isEast = location.longitude > bounds.getCenter().longitude;
+    if (children[0] == null) {
+      // Create all children
+      int nextDepth = this.depth + 1;
+      children[0] = new QuadTree(bounds.getCenter(), bounds.northeast, nextDepth);
+      children[1] = new QuadTree(bounds.getCenter(),
+          new LatLng(bounds.southwest.latitude, bounds.northeast.longitude), nextDepth);
+      children[2] = new QuadTree(bounds.getCenter(), bounds.southwest, nextDepth);
+      children[3] = new QuadTree(bounds.getCenter(),
+          new LatLng(bounds.northeast.latitude, bounds.southwest.longitude), nextDepth);
 
-    if (isNorth) {
-      if (isEast) {
-        if (northEast == null) {
-          LatLngBounds.Builder b = new LatLngBounds.Builder();
-          b.include(bounds.northeast);
-          b.include(bounds.getCenter());
-          northEast = new QuadTree(depth + 1, b.build());
+      // Move the location(s) to the correct child
+      for (AnnotatedLatLng latLng : locations) {
+        for (QuadTree child : children) {
+          if (child.contains(latLng)) {
+            child.addLatLng(latLng);
+          }
         }
-        northEast.addLatLng(location, index);
+      }
+
+      locations.clear();
+    }
+
+    for (QuadTree child : children) {
+      if (child.contains(location)) {
+        child.addLatLng(annotatedLatLng);
       }
     }
   }
