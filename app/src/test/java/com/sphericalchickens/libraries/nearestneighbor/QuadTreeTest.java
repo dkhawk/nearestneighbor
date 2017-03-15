@@ -26,7 +26,7 @@ public class QuadTreeTest {
     builder.include(new LatLng(1, 1));
     builder.include(new LatLng(-1, -1));
     LatLngBounds bounds = builder.build();
-    QuadTree qt = new QuadTree(bounds);
+    QuadTree qt = new QuadTree(bounds, 1);
     assertThat(qt.getBounds()).isEqualTo(bounds);
 
     assertThat(qt.getNorthEast()).isNull();
@@ -48,7 +48,7 @@ public class QuadTreeTest {
     assertThat(qt.getSouthWest()).isNull();
     assertThat(qt.getNorthWest()).isNull();
 
-    AnnotatedLatLng closestLocation = qt.findClosestLocation(testLocation);
+    AnnotatedLatLng closestLocation = qt.findClosestLocation(testLocation).first;
     assertThat(closestLocation).isNotNull();
     assertThat(closestLocation.location).matchesLocation(new LatLng(0.5, 0.5));
 
@@ -90,9 +90,20 @@ public class QuadTreeTest {
     AnnotatedLatLng bruteForceClosest = bruteForceClosest(qt, testLocation);
     assertThat(bruteForceClosest.location).matchesLocation(new LatLng(0.5, 0.5));
 
-    closestLocation = qt.findClosestLocation(testLocation);
+    closestLocation = qt.findClosestLocation(testLocation).first;
     assertThat(closestLocation).isNotNull();
     assertThat(closestLocation.location).matchesLocation(new LatLng(0.5, 0.5));
+
+    // Add another location in the same quad which is closer
+    addLatLng(qt, 0.4, 0.4);
+    assertThat(qt.getNorthEast().getAllLocations()).hasSize(2);
+    testLocation = new LatLng(0.41, 0.41);
+    bruteForceClosest = bruteForceClosest(qt, testLocation);
+    assertThat(bruteForceClosest.location).matchesLocation(new LatLng(0.40, 0.40));
+
+    closestLocation = qt.findClosestLocation(testLocation).first;
+    assertThat(closestLocation).isNotNull();
+    assertThat(closestLocation.location).matchesLocation(bruteForceClosest.location);
 
     // Try a trickier location
     addLatLng(qt, 0.01, 0.01);
@@ -100,7 +111,7 @@ public class QuadTreeTest {
     bruteForceClosest = bruteForceClosest(qt, testLocation);
     assertThat(bruteForceClosest.location).matchesLocation(new LatLng(0.01, 0.01));
 
-    closestLocation = qt.findClosestLocation(testLocation);
+    closestLocation = qt.findClosestLocation(testLocation).first;
     assertThat(closestLocation).isNotNull();
     assertThat(closestLocation.location).matchesLocation(bruteForceClosest.location);
   }
