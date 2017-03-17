@@ -35,7 +35,17 @@ public class LatLngSubject extends Subject<LatLngSubject, LatLng> {
     }
 
     public void matchesLocation(LatLng expected) {
-        Truth.assertThat(getSubject().latitude).isWithin(EPSILON).of(expected.latitude);
-        Truth.assertThat(getSubject().longitude).isWithin(EPSILON).of(expected.longitude);
+      if (Math.abs(getSubject().latitude - expected.latitude) > EPSILON
+        || Math.abs(getSubject().longitude - expected.longitude) > EPSILON) {
+        failWithRawMessage(
+            "<%s> and <%s> should have been finite values within <%s> of each other",
+            formatLatLng(getSubject()),
+            formatLatLng(expected),
+            EPSILON);
+      }
     }
+
+  private String formatLatLng(LatLng latLng) {
+    return String.format("%f, %f", latLng.latitude, latLng.longitude);
+  }
 }

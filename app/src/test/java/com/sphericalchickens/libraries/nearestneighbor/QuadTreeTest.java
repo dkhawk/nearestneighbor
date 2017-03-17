@@ -2,6 +2,7 @@ package com.sphericalchickens.libraries.nearestneighbor;
 
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.util.Pair;
 
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
@@ -10,6 +11,7 @@ import com.google.maps.android.SphericalUtil;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Random;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.sphericalchickens.libraries.nearestneighbor.LatLngBoundsSubject.assertThat;
@@ -114,6 +116,41 @@ public class QuadTreeTest {
     closestLocation = qt.findClosestLocation(testLocation).first;
     assertThat(closestLocation).isNotNull();
     assertThat(closestLocation.location).matchesLocation(bruteForceClosest.location);
+  }
+
+  @Test
+  public void randomSampling() throws Exception {
+    LatLngBounds.Builder builder = LatLngBounds.builder();
+    builder.include(new LatLng(1, 1));
+    builder.include(new LatLng(-1, -1));
+    LatLngBounds bounds = builder.build();
+    QuadTree qt = new QuadTree(bounds, 10);
+
+    Random random = new Random();
+    random.setSeed(System.currentTimeMillis());
+
+    // Generate one hundred random locations
+    for (int i = 0; i < 100; i++) {
+      double lat = (random.nextDouble() * 2.0) - 1.0;
+      double lng = (random.nextDouble() * 2.0) - 1.0;
+      addLatLng(qt, lat, lng);
+    }
+
+    // Now test one hundred random locations
+    for (int i = 0; i < 100; i++) {
+      double lat = (random.nextDouble() * 2.0) - 1.0;
+      double lng = (random.nextDouble() * 2.0) - 1.0;
+      LatLng ll = new LatLng(lat, lng);
+      LatLng testLocation = new LatLng(-0.01, 0.01);
+      AnnotatedLatLng bruteForceClosest = bruteForceClosest(qt, testLocation);
+
+      Pair<AnnotatedLatLng, Double> closestPair = qt.findClosestLocation(testLocation);
+      assertThat(closestPair).isNotNull();
+
+      AnnotatedLatLng closestLocation = closestPair.first;
+      assertThat(closestLocation).isNotNull();
+      assertThat(closestLocation.location).matchesLocation(bruteForceClosest.location);
+    }
   }
 
   private void addLatLng(QuadTree quadTree, double lat, double lng) {

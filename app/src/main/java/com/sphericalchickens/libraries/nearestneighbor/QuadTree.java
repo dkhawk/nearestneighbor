@@ -90,67 +90,124 @@ public class QuadTree {
 
   @Nullable
   public Pair<AnnotatedLatLng, Double> findClosestLocation(LatLng testLocation) {
+    // If this is a leave quad, find the closest location regardless of the containment!
     if (!locations.isEmpty()) {
       return checkAllLocations(testLocation);
     }
 
     Pair<AnnotatedLatLng, Double> closestPair = null;
 
+    // For each child, if the child contains the testLocation, then have that child check the point
+    int closestDirection = -1;
     if (children[0] != null) {
-      int closestDirection = -1;
-      for (QuadTree child : children) {
-        if (child.contains(testLocation)) {
-          closestPair = child.findClosestLocation(testLocation);
-          closestDirection++;
+      for (int i = 0; i < children.length; ++i) {
+        if (children[i].contains(testLocation)) {
+          closestPair = children[i].findClosestLocation(testLocation);
+          closestDirection = i;
+        }
+      }
+    }
+
+    // Now we know the quad with the closest location found so far.
+    // See if any of the other quads could possibly contain a closer location
+    if (closestPair != null) {
+      boolean[] checkedQuads = new boolean[4];
+      checkedQuads[closestDirection] = true;
+
+      // Check the distance to the nearest border...
+      // TODO(dkhawk): this is approximately correct...
+      LatLngBounds childBounds = children[closestDirection].getBounds();
+
+      double distNorth = SphericalUtil.computeDistanceBetween(testLocation,
+          new LatLng(childBounds.northeast.latitude, testLocation.longitude));
+
+      double distSouth = SphericalUtil.computeDistanceBetween(testLocation,
+          new LatLng(childBounds.southwest.latitude, testLocation.longitude));
+
+      double distEast = SphericalUtil.computeDistanceBetween(testLocation,
+          new LatLng(testLocation.latitude, childBounds.northeast.longitude));
+
+      double distWest = SphericalUtil.computeDistanceBetween(testLocation,
+          new LatLng(testLocation.latitude, childBounds.southwest.longitude));
+
+      // Must check both quads north if the distance to the north is closer
+      if (distNorth <= closestPair.second
+          && (closestDirection == SOUTHEAST || closestDirection == SOUTHWEST)) {
+        if (!checkedQuads[NORTHWEST]) {
+          checkedQuads[NORTHWEST] = true;
+          Pair<AnnotatedLatLng, Double> p = children[NORTHWEST].findClosestLocation(testLocation);
+          if ((p != null) && (p.second < closestPair.second)) {
+            closestPair = p;
+          }
+        }
+
+        if (!checkedQuads[NORTHEAST]) {
+          checkedQuads[NORTHEAST] = true;
+          Pair<AnnotatedLatLng, Double> p = children[NORTHEAST].findClosestLocation(testLocation);
+          if ((p != null) && (p.second < closestPair.second)) {
+            closestPair = p;
+          }
         }
       }
 
-      if (closestPair != null) {
-        // Check the distance to the nearest border...
-        // TODO(dkhawk): this is approximately correct...
-        double distNorth = SphericalUtil.computeDistanceBetween(testLocation,
-            new LatLng(testLocation.latitude, bounds.northeast.longitude));
-
-        double distSouth = SphericalUtil.computeDistanceBetween(testLocation,
-            new LatLng(testLocation.latitude, bounds.southwest.longitude));
-
-        double distEast = SphericalUtil.computeDistanceBetween(testLocation,
-            new LatLng(bounds.northeast.latitude, testLocation.longitude));
-
-        double distWest = SphericalUtil.computeDistanceBetween(testLocation,
-            new LatLng(bounds.southwest.latitude, testLocation.longitude));
-
-        // For each of the distances, if any are less than the closest distance found so far, check that quad
-        if (closestDirection == NORTHEAST) {
-          if (distSouth <= closestPair.second) {
-            Pair<AnnotatedLatLng, Double> sep = checkLocations(testLocation,
-                children[SOUTHEAST].getAllLocations());
-            if (sep != null && (sep.second < closestPair.second)) {
-              closestPair = sep;
-            }
+      // Must check both quads south if the distance to the south is closer
+      if (distSouth <= closestPair.second
+          && (closestDirection == NORTHEAST || closestDirection == NORTHWEST)) {
+        if (!checkedQuads[SOUTHWEST]) {
+          checkedQuads[SOUTHWEST] = true;
+          Pair<AnnotatedLatLng, Double> p = children[SOUTHWEST].findClosestLocation(testLocation);
+          if ((p != null) && (p.second < closestPair.second)) {
+            closestPair = p;
           }
+        }
 
-          if (distEast <= closestPair.second) {
-            Pair<AnnotatedLatLng, Double> nwp = checkLocations(testLocation,
-                children[NORTHWEST].getAllLocations());
-            if (nwp != null && (nwp.second < closestPair.second)) {
-              closestPair = nwp;
-            }
+        if (!checkedQuads[SOUTHEAST]) {
+          checkedQuads[SOUTHEAST] = true;
+          Pair<AnnotatedLatLng, Double> p = children[SOUTHEAST].findClosestLocation(testLocation);
+          if ((p != null) && (p.second < closestPair.second)) {
+            closestPair = p;
           }
+        }
+      }
 
-          if (distEast <= closestPair.second && distSouth <= closestPair.second) {
-            Pair<AnnotatedLatLng, Double> swp = checkLocations(testLocation,
-                children[SOUTHWEST].getAllLocations());
-            if (swp != null && (swp.second < closestPair.second)) {
-              closestPair = swp;
-            }
+      // Must check both quads east if the distance to the east is closer
+      if (distEast <= closestPair.second
+          && (closestDirection == NORTHWEST || closestDirection == SOUTHWEST)) {
+        if (!checkedQuads[NORTHEAST]) {
+          checkedQuads[NORTHEAST] = true;
+          Pair<AnnotatedLatLng, Double> p = children[NORTHEAST].findClosestLocation(testLocation);
+          if ((p != null) && (p.second < closestPair.second)) {
+            closestPair = p;
           }
-        }  // NORTHEAST
+        }
 
-        if (closestDirection == SOUTHEAST) {
-          // TODO
-        }  // SOUTHEAST
+        if (!checkedQuads[SOUTHEAST]) {
+          checkedQuads[SOUTHEAST] = true;
+          Pair<AnnotatedLatLng, Double> p = children[SOUTHEAST].findClosestLocation(testLocation);
+          if ((p != null) && (p.second < closestPair.second)) {
+            closestPair = p;
+          }
+        }
+      }
 
+      // Must check both quads west if the distance to the west is closer
+      if (distWest <= closestPair.second
+          && (closestDirection == NORTHEAST || closestDirection == SOUTHEAST)) {
+        if (!checkedQuads[NORTHWEST]) {
+          checkedQuads[NORTHWEST] = true;
+          Pair<AnnotatedLatLng, Double> p = children[NORTHWEST].findClosestLocation(testLocation);
+          if ((p != null) && (p.second < closestPair.second)) {
+            closestPair = p;
+          }
+        }
+
+        if (!checkedQuads[SOUTHWEST]) {
+          checkedQuads[SOUTHWEST] = true;
+          Pair<AnnotatedLatLng, Double> p = children[SOUTHWEST].findClosestLocation(testLocation);
+          if ((p != null) && (p.second < closestPair.second)) {
+            closestPair = p;
+          }
+        }
       }
     }
     return closestPair;
