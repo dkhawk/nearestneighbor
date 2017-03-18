@@ -30,6 +30,7 @@ public class QuadTree {
   final LatLngBounds bounds;
   final List<AnnotatedLatLng> locations = new ArrayList<>();
   private final int maxDepth;
+  private static int mNumberOfDistancesCalculated;
 
   public QuadTree(LatLng latLng, LatLng latLng1, int depth, int maxDepth) {
     bounds = LatLngBounds.builder().include(latLng).include(latLng1).build();
@@ -91,11 +92,13 @@ public class QuadTree {
   @Nullable
   public Pair<AnnotatedLatLng, Double> findClosestLocation(LatLng testLocation) {
     // If this is a leave quad, find the closest location regardless of the containment!
+    // TODO(dkhawk) some truly fugly code.  Refactor!
     if (!locations.isEmpty()) {
       return checkAllLocations(testLocation);
     }
 
     Pair<AnnotatedLatLng, Double> closestPair = null;
+    boolean[] checkedQuads = new boolean[4];
 
     // For each child, if the child contains the testLocation, then have that child check the point
     int closestDirection = -1;
@@ -104,6 +107,7 @@ public class QuadTree {
         if (children[i].contains(testLocation)) {
           closestPair = children[i].findClosestLocation(testLocation);
           closestDirection = i;
+          checkedQuads[closestDirection] = true;
         }
       }
     }
@@ -111,24 +115,17 @@ public class QuadTree {
     // Now we know the quad with the closest location found so far.
     // See if any of the other quads could possibly contain a closer location
     if (closestPair != null) {
-      boolean[] checkedQuads = new boolean[4];
-      checkedQuads[closestDirection] = true;
-
       // Check the distance to the nearest border...
       // TODO(dkhawk): this is approximately correct...
       LatLngBounds childBounds = children[closestDirection].getBounds();
 
-      double distNorth = SphericalUtil.computeDistanceBetween(testLocation,
-          new LatLng(childBounds.northeast.latitude, testLocation.longitude));
+      double distNorth = computeDistance(testLocation, new LatLng(childBounds.northeast.latitude, testLocation.longitude));
 
-      double distSouth = SphericalUtil.computeDistanceBetween(testLocation,
-          new LatLng(childBounds.southwest.latitude, testLocation.longitude));
+      double distSouth = computeDistance(testLocation, new LatLng(childBounds.southwest.latitude, testLocation.longitude));
 
-      double distEast = SphericalUtil.computeDistanceBetween(testLocation,
-          new LatLng(testLocation.latitude, childBounds.northeast.longitude));
+      double distEast = computeDistance(testLocation, new LatLng(testLocation.latitude, childBounds.northeast.longitude));
 
-      double distWest = SphericalUtil.computeDistanceBetween(testLocation,
-          new LatLng(testLocation.latitude, childBounds.southwest.longitude));
+      double distWest = computeDistance(testLocation, new LatLng(testLocation.latitude, childBounds.southwest.longitude));
 
       // Must check both quads north if the distance to the north is closer
       if (distNorth <= closestPair.second
@@ -210,7 +207,45 @@ public class QuadTree {
         }
       }
     }
+
+    if (closestPair == null && children[0] != null) {
+      // TODO(dkhawk) recalculate the distances to the bounds every time the closestPair is updated.
+      if (!checkedQuads[SOUTHWEST]) {
+        checkedQuads[SOUTHWEST] = true;
+        Pair<AnnotatedLatLng, Double> p = children[SOUTHWEST].findClosestLocation(testLocation);
+        if ((p != null) && (closestPair == null || (p.second < closestPair.second))) {
+          closestPair = p;
+        }
+      }
+
+      if (!checkedQuads[NORTHWEST]) {
+        checkedQuads[NORTHWEST] = true;
+        Pair<AnnotatedLatLng, Double> p = children[NORTHWEST].findClosestLocation(testLocation);
+        if ((p != null) && (closestPair == null || (p.second < closestPair.second))) {
+          closestPair = p;
+        }
+      }
+      if (!checkedQuads[SOUTHEAST]) {
+        checkedQuads[SOUTHEAST] = true;
+        Pair<AnnotatedLatLng, Double> p = children[SOUTHEAST].findClosestLocation(testLocation);
+        if ((p != null) && (closestPair == null || (p.second < closestPair.second))) {
+          closestPair = p;
+        }
+      }
+      if (!checkedQuads[NORTHEAST]) {
+        checkedQuads[NORTHEAST] = true;
+        Pair<AnnotatedLatLng, Double> p = children[NORTHEAST].findClosestLocation(testLocation);
+        if ((p != null) && (closestPair == null || (p.second < closestPair.second))) {
+          closestPair = p;
+        }
+      }
+    }
     return closestPair;
+  }
+
+  private double computeDistance(LatLng location1, LatLng location2) {
+    mNumberOfDistancesCalculated++;
+    return SphericalUtil.computeDistanceBetween(location1, location2);
   }
 
   @Nullable
@@ -229,13 +264,36 @@ public class QuadTree {
     double closestDistance = Double.MAX_VALUE;
 
     for (AnnotatedLatLng annotatedLatLng : allLocations) {
-      double dist = SphericalUtil.computeDistanceBetween(testLocation, annotatedLatLng.location);
+      double dist = computeDistance(testLocation, annotatedLatLng.location);
       if (dist < closestDistance) {
         closestDistance = dist;
         closestLocation = annotatedLatLng;
       }
     }
     return new Pair<>(closestLocation, closestDistance);
+  }
+
+  public AnnotatedLatLng findClosestLocationBruteForce(LatLng testLocation) {
+    List<AnnotatedLatLng> allLocations = getAllLocations();
+    AnnotatedLatLng closestLocation = null;
+
+    double closestDistance = Double.MAX_VALUE;
+    for (AnnotatedLatLng annotatedLatLng : allLocations) {
+      double dist = computeDistance(testLocation, annotatedLatLng.location);
+      if (dist < closestDistance) {
+        closestDistance = dist;
+        closestLocation = annotatedLatLng;
+      }
+    }
+    return closestLocation;
+  }
+
+  public void resetCalculationCount() {
+    mNumberOfDistancesCalculated = 0;
+  }
+
+  public int getCalculationCount() {
+    return mNumberOfDistancesCalculated;
   }
 
   static class AnnotatedLatLng {

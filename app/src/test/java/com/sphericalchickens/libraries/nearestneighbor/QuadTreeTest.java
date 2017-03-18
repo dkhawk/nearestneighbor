@@ -129,22 +129,26 @@ public class QuadTreeTest {
     Random random = new Random();
     random.setSeed(System.currentTimeMillis());
 
-    // Generate one hundred random locations
-    for (int i = 0; i < 100; i++) {
+    // Generate random locations
+    for (int i = 0; i < 20000; i++) {
       double lat = (random.nextDouble() * 2.0) - 1.0;
       double lng = (random.nextDouble() * 2.0) - 1.0;
       addLatLng(qt, lat, lng);
     }
 
-    // Now test one hundred random locations
+    // Now test one random locations
     for (int i = 0; i < 100; i++) {
       double lat = (random.nextDouble() * 2.0) - 1.0;
       double lng = (random.nextDouble() * 2.0) - 1.0;
-      LatLng ll = new LatLng(lat, lng);
-      LatLng testLocation = new LatLng(-0.01, 0.01);
-      AnnotatedLatLng bruteForceClosest = bruteForceClosest(qt, testLocation);
+      LatLng testLocation = new LatLng(lat, lng);
 
+      qt.resetCalculationCount();
+      AnnotatedLatLng bruteForceClosest = bruteForceClosest(qt, testLocation);
+      int bruteForceCount = qt.getCalculationCount();
+
+      qt.resetCalculationCount();
       Pair<AnnotatedLatLng, Double> closestPair = qt.findClosestLocation(testLocation);
+      int quadCount = qt.getCalculationCount();
       assertThat(closestPair).isNotNull();
 
       AnnotatedLatLng closestLocation = closestPair.first;
@@ -159,18 +163,7 @@ public class QuadTreeTest {
 
   @Nullable
   private AnnotatedLatLng bruteForceClosest(QuadTree qt, LatLng testLocation) {
-    List<AnnotatedLatLng> allLocations = qt.getAllLocations();
-    AnnotatedLatLng closestLocation = null;
-
-    double closestDistance = Double.MAX_VALUE;
-    for (AnnotatedLatLng annotatedLatLng : allLocations) {
-      double dist = SphericalUtil.computeDistanceBetween(testLocation, annotatedLatLng.location);
-      if (dist < closestDistance) {
-        closestDistance = dist;
-        closestLocation = annotatedLatLng;
-      }
-    }
-    return closestLocation;
+    return qt.findClosestLocationBruteForce(testLocation);
   }
 
   @NonNull
