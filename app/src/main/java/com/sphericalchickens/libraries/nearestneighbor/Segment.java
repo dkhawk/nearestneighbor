@@ -73,29 +73,12 @@ public class Segment {
     for (LatLng location : locations) {
       boundsBuilder.include(location);
     }
-
     bounds = boundsBuilder.build();
 
-    latRange = bounds.northeast.latitude - bounds.southwest.latitude;
-    lngRange = bounds.northeast.longitude - bounds.southwest.longitude;
-
-    latStep = latRange / NUMBER_OF_STEPS;
-    lngStep = lngRange / NUMBER_OF_STEPS;
-
-    latIndexedLocations = new ArrayList<>(NUMBER_OF_STEPS);
-    lngIndexedLocations = new ArrayList<>(NUMBER_OF_STEPS);
-
-    for (int i = 0; i < NUMBER_OF_STEPS; i++) {
-      latIndexedLocations.add(new ArrayList<LatLngIdx>());
-      lngIndexedLocations.add(new ArrayList<LatLngIdx>());
-    }
-
-    for (int i = 0; i < locations.size(); ++i) {
-      LatLng location = locations.get(i);
-      int latIdx = getLatIndex(location);
-      int lngIdx = getLngIndex(location);
-      latIndexedLocations.get(latIdx).add(new LatLngIdx(location, i));
-      lngIndexedLocations.get(lngIdx).add(new LatLngIdx(location, i));
+    QuadTree quadTree = new QuadTree(bounds, QuadTree.MAX_DEPTH);
+    for (LatLng location : locations) {
+      QuadTree.AnnotatedLatLng annotatedLatLng = new QuadTree.AnnotatedLatLng(location);
+      quadTree.addLatLng(annotatedLatLng);
     }
   }
 
