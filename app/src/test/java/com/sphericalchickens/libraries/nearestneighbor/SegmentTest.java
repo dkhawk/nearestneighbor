@@ -78,39 +78,22 @@ public class SegmentTest {
     nearestIndex = segment.nearestLocationIndexed(new LatLng(39.196, -120.2358));
     assertThat(nearestIndex).isEqualTo(2);
 
-
-    LatLngBounds bounds = segment.getBounds();
-
     LatLng location = new LatLng(39.196655, -120.31726);
-
-    location = new LatLng(39.19613, -120.23565);
-
-    location = new LatLng(39.09449, -120.6701);
-
-    location = new LatLng(38.89586,-121.06744);
+    int nearestBrute = segment.nearestLocationBruteForce(location);
+    nearestIndex = segment.nearestLocationIndexed(location);
+    assertThat(nearestIndex).isEqualTo(nearestBrute);
 
     nearestIndex = segment.nearestLocationIndexed(new LatLng(39.196, -120.2358));
     assertThat(nearestIndex).isEqualTo(2);
 
     location = new LatLng(39.09449,-120.6701);
     nearestIndex = segment.nearestLocationIndexed(location);
-    int nearestBrute = segment.nearestLocationBruteForce(location);
+    nearestBrute = segment.nearestLocationBruteForce(location);
     assertThat(nearestIndex).isEqualTo(nearestBrute);
-
 
     location = new LatLng(lat = 38.921534, lng = -120.254736);
     nearestIndex = segment.nearestLocationIndexed(location);
     nearestBrute = segment.nearestLocationBruteForce(location);
-
-    System.out.println(String.format("%f, %f", lat, lng));
-
-    LatLng wrong = new LatLng(39.18513, -120.25067);
-    LatLng correct = new LatLng(39.133038, -120.45203);
-
-    double d1 = SphericalUtil.computeDistanceBetween(location, wrong);
-    double d2 = SphericalUtil.computeDistanceBetween(location, correct);
-
-    System.out.println(String.format("Dist: %f, %f", d1, d2));
 
     assertThat(nearestIndex).isEqualTo(nearestBrute);
 
@@ -125,8 +108,6 @@ public class SegmentTest {
       nearestBrute = segment.nearestLocationBruteForce(location);
       if (nearestIndex != nearestBrute) {
         System.out.println(String.format("%f, %f", lat, lng));
-      } else {
-        System.out.println(String.format("Success: %f, %f", lat, lng));
       }
       assertThat(nearestIndex).isEqualTo(nearestBrute);
     }
