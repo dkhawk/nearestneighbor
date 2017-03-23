@@ -1,5 +1,7 @@
 package com.sphericalchickens.libraries.nearestneighbor;
 
+import android.support.v4.util.Pair;
+
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.maps.android.SphericalUtil;
@@ -13,36 +15,17 @@ public class Segment {
 
   public static final int NUMBER_OF_STEPS = 20;
   List<LatLng> locations = new ArrayList<>();
-  private LatLng center;
   private LatLngBounds bounds;
-  private double yRange;
-  private double xRange;
-  private double xStep;
-  private double yStep;
-  private double latRange;
-  private double lngRange;
-  private double latStep;
-  private double lngStep;
-
-  List<List<LatLngIdx>> latIndexedLocations;
-  List<List<LatLngIdx>> lngIndexedLocations;
+  private QuadTree quadTree;
 
   public double getLatRange() {
-    return latRange;
+    LatLngBounds bounds = quadTree.getBounds();
+    return bounds.northeast.latitude - bounds.southwest.latitude;
   }
 
   public double getLngRange() {
-    return lngRange;
-  }
-
-  static class LatLngIdx {
-    final LatLng location;
-    final int index;
-
-    LatLngIdx(LatLng location, int index) {
-      this.location = location;
-      this.index = index;
-    }
+    LatLngBounds bounds = quadTree.getBounds();
+    return bounds.northeast.longitude - bounds.southwest.longitude;
   }
 
   public void add(LatLng location) {
@@ -75,76 +58,24 @@ public class Segment {
     }
     bounds = boundsBuilder.build();
 
-    QuadTree quadTree = new QuadTree(bounds, QuadTree.MAX_DEPTH);
-    for (LatLng location : locations) {
+    quadTree = new QuadTree(bounds, QuadTree.MAX_DEPTH);
+    for (int i = 0; i < locations.size(); ++i) {
+      LatLng location = locations.get(i);
       QuadTree.AnnotatedLatLng annotatedLatLng = new QuadTree.AnnotatedLatLng(location);
+      annotatedLatLng.setTag(i);
       quadTree.addLatLng(annotatedLatLng);
     }
   }
 
-  int getLatIndex(LatLng location) {
-    double lat = location.latitude - bounds.southwest.latitude;
-    return Math.max(0, Math.min((int) Math.floor((lat / latRange) * NUMBER_OF_STEPS), NUMBER_OF_STEPS - 1));
-  }
-
-  int getLngIndex(LatLng location) {
-    double lng = location.longitude - bounds.southwest.longitude;
-    return Math.max(0, Math.min((int) Math.floor((lng / lngRange) * NUMBER_OF_STEPS), NUMBER_OF_STEPS - 1));
-  }
-
   public int nearestLocationIndexed(LatLng location) {
-    int latIdx = getLatIndex(location);
-    int lngIdx = getLngIndex(location);
-
-    // Check all nearest neighbors
-    int minLat = Math.max(0, latIdx - 1);
-    int minLng = Math.max(0, lngIdx - 1);
-
-    int maxLat = Math.min(NUMBER_OF_STEPS - 1, latIdx + 1);
-    int maxLng = Math.min(NUMBER_OF_STEPS - 1, lngIdx + 1);
-
-    double closestDistance = Double.MAX_VALUE;
-    int closestLocationIndex = -1;
-
-    int latError = Integer.MAX_VALUE;
-    int lngError = Integer.MAX_VALUE;
-
-    for (int i = minLat; i <= maxLat; ++i) {
-      for (LatLngIdx latLngIdx : latIndexedLocations.get(i)) {
-        double dist = SphericalUtil.computeDistanceBetween(location, latLngIdx.location);
-        if (dist < closestDistance) {
-          closestDistance = dist;
-          closestLocationIndex = latLngIdx.index;
-          lngError = lngIdx - getLngIndex(latLngIdx.location);
-        }
-      }
+    if (quadTree == null) {
+      buildIndex();
     }
-
-    for (int i = minLng; i <= maxLng; ++i) {
-      for (LatLngIdx latLngIdx : lngIndexedLocations.get(i)) {
-        double dist = SphericalUtil.computeDistanceBetween(location, latLngIdx.location);
-        if (dist < closestDistance) {
-          closestDistance = dist;
-          closestLocationIndex = latLngIdx.index;
-          latError = lngIdx - getLatIndex(latLngIdx.location);
-        }
-      }
+    Pair<QuadTree.AnnotatedLatLng, Double> p = quadTree.findClosestLocation(location);
+    if (p == null) {
+      return -1;
     }
-
-    System.out.println("closest distance " + closestDistance);
-    System.out.println("closest index " + closestLocationIndex);
-    System.out.println("latError " + latError);
-    System.out.println("lngError " + lngError);
-
-    return closestLocationIndex;
-  }
-
-  public double getXRange() {
-    return xRange;
-  }
-
-  public double getYRange() {
-    return yRange;
+    return (Integer) p.first.getTag();
   }
 
   public LatLngBounds getBounds() {

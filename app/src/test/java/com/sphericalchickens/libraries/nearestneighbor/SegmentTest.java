@@ -48,10 +48,6 @@ public class SegmentTest {
         lng = Double.parseDouble(parts[1]);
         LatLng location = new LatLng(lat, lng);
         segment.add(location);
-//        if (count > 1000) {
-//          break;
-//        }
-//        count++;
       }
     } while (line != null);
 
@@ -63,44 +59,35 @@ public class SegmentTest {
 
     int nearestIndex = segment.nearestLocationBruteForce(new LatLng(39.19613, -120.23565));
     assertThat(nearestIndex).isEqualTo(0);
+    nearestIndex = segment.nearestLocationIndexed(new LatLng(39.19613, -120.23565));
+    assertThat(nearestIndex).isEqualTo(0);
 
     nearestIndex = segment.nearestLocationBruteForce(new LatLng(39.195908, -120.23592));
     assertThat(nearestIndex).isEqualTo(4);
+    nearestIndex = segment.nearestLocationIndexed(new LatLng(39.195908, -120.23592));
+    assertThat(nearestIndex).isEqualTo(4);
 
     nearestIndex = segment.nearestLocationBruteForce(new LatLng(39.195602, -120.236176));
+    assertThat(nearestIndex).isEqualTo(9);
+    nearestIndex = segment.nearestLocationIndexed(new LatLng(39.195602, -120.236176));
     assertThat(nearestIndex).isEqualTo(9);
 
     // A location not on the line
     nearestIndex = segment.nearestLocationBruteForce(new LatLng(39.196, -120.2358));
     assertThat(nearestIndex).isEqualTo(2);
+    nearestIndex = segment.nearestLocationIndexed(new LatLng(39.196, -120.2358));
+    assertThat(nearestIndex).isEqualTo(2);
 
-    segment.buildIndex();
 
     LatLngBounds bounds = segment.getBounds();
 
-    assertThat(segment.getLatIndex(bounds.southwest)).isEqualTo(0);
-    assertThat(segment.getLngIndex(bounds.southwest)).isEqualTo(0);
-
-    assertThat(segment.getLatIndex(bounds.northeast)).isEqualTo(NUMBER_OF_STEPS - 1);
-    assertThat(segment.getLngIndex(bounds.northeast)).isEqualTo(NUMBER_OF_STEPS - 1);
-
     LatLng location = new LatLng(39.196655, -120.31726);
-    System.out.println(segment.getLatIndex(location));
-    System.out.println(segment.getLngIndex(location));
-    assertThat(segment.getLatIndex(location)).isEqualTo(18);
-    assertThat(segment.getLngIndex(location)).isEqualTo(18);
 
     location = new LatLng(39.19613, -120.23565);
-    System.out.println(segment.getLatIndex(location));
-    System.out.println(segment.getLngIndex(location));
 
     location = new LatLng(39.09449, -120.6701);
-    System.out.println(segment.getLatIndex(location));
-    System.out.println(segment.getLngIndex(location));
 
     location = new LatLng(38.89586,-121.06744);
-    System.out.println(segment.getLatIndex(location));
-    System.out.println(segment.getLngIndex(location));
 
     nearestIndex = segment.nearestLocationIndexed(new LatLng(39.196, -120.2358));
     assertThat(nearestIndex).isEqualTo(2);
@@ -125,19 +112,7 @@ public class SegmentTest {
 
     System.out.println(String.format("Dist: %f, %f", d1, d2));
 
-    System.out.println(String.format("Location index: %d, %d", segment.getLatIndex(location),
-        segment.getLngIndex(location)));
-
-    System.out.println(String.format("Wrong index: %d, %d", segment.getLatIndex(wrong),
-        segment.getLngIndex(wrong)));
-
-    System.out.println(String.format("Correct index: %d, %d", segment.getLatIndex(correct),
-        segment.getLngIndex(correct)));
-
     assertThat(nearestIndex).isEqualTo(nearestBrute);
-
-
-    // ==============================
 
     Random generator = new Random(System.currentTimeMillis());
 
